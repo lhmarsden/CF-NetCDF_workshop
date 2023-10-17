@@ -1,0 +1,320 @@
+## Load libraries
+
+Firstly, let's load the libraries that we will use.
+
+They will need to be installed first if you don't already have them.
+
+```{r}
+#install.packages("RNetCDF")
+library(RNetCDF)
+```
+
+# Importing your data
+
+The first thing is to load your data into python. I don't have any data, so I will create dummy data for myself to work with further down in this document.
+
+```{r}
+#install.packages("readxl")
+#library(readxl)
+#data <- read_excel("/path/to/your/file.xlsx")
+#data <- read.csv("/path/to/your/file.csv")
+```
+
+# Initialising your file
+
+```{r}
+ncds <- create.nc("test.nc")
+print.nc(ncds)
+```
+
+# Dimensions and coordinate variables
+
+Dimensions define the shape of your data. Variables (your data) can be assigned one or more dimensions. A dimension in most cases is a spatial or temporal dimension (e.g. time, depth, latitude, longitude) but could also be something else (e.g. iteration, number of vertices for data representative of cells).
+
+Dimensions tell you how many points you have for each coordinate. Coordinate variables tell you what the values for those points are.
+
+Let's imagine a few simple scenarios. I'll initialise a new NetCDF dataset each time.
+
+### 1 dimension - depth
+
+```{r}
+depths <- c(0,10,20,30,50,100)
+num_depths = length(depths)
+
+ncds <- create.nc("test.nc")
+dim.def.nc(ncds,"depth",num_depths)
+print.nc(ncds)
+```
+
+You then need to add a coordinate variable (I'll again call it *depth*) which has a dimension of *depth*. It is quite common for the dimension and coordinate variable to have the same name.
+
+First we define the variable. Below the first argument *ncds* is my NetCDF file, *depth* is the name I am giving to the dimension, *NC_INT* means the values will be integers, and the final argument *depth* says that this variable has one dimension call depth. The dimension has to be defined first.
+
+```{r}
+var.def.nc(ncds,"depth","NC_INT","depth")
+print.nc(nc)
+```
+
+Only now can we add our values to the variables.
+
+```{r}
+var.put.nc(ncds,"depth", depths)
+print.nc(ncds)
+```
+
+Right away we can see the object has a defined structure with dimensions and variables. A key feature of a NetCDF file is that there is a defined structure so your data and metadata will always be in the same place within the file. This makes it easier for a machine to read it. We will add more types of data and metadata as we go, but first a few more examples.
+
+### A time series of data
+
+I'll create a list of timestamps for myself first.
+
+```{r}
+# Create a list of 8 timestamps on June 18th, 2023
+timestamps <- list(
+  as.POSIXct("2023-06-18 00:00:00", tz = "UTC"),
+  as.POSIXct("2023-06-18 03:00:00", tz = "UTC"),
+  as.POSIXct("2023-06-18 06:00:00", tz = "UTC"),
+  as.POSIXct("2023-06-18 09:00:00", tz = "UTC"),
+  as.POSIXct("2023-06-18 12:00:00", tz = "UTC"),
+  as.POSIXct("2023-06-18 15:00:00", tz = "UTC"),
+  as.POSIXct("2023-06-18 18:00:00", tz = "UTC"),
+  as.POSIXct("2023-06-18 21:00:00", tz = "UTC")
+)
+
+# Print the list of timestamps
+print(timestamps)
+```
+
+There are specific recommendations on how time should be stored in NetCDF-CF files. I will try to explain briefly here, and there is a nice explanation here too: https://www.unidata.ucar.edu/software/netcdf/time/recs.html
+
+It is most common to have a dimension named "time" as well as a coordinate variable with the same name. Let's discuss the variable first.
+
+The "time" variable has units that count from a user defined origin, for example "hours since 2020-01-01 00:00 UTC" or "days since 2014-01-01". The units may be in years, days, seconds, nanoseconds, etc. Whilst this approach may seem strange at a glance, it allows the times to be stored in conventional numerical formats such as integers or floats, and to our desired precision. This is much more efficient than using a long timestamp string for each coordinate.
+
+Some softwares know how to interpret this and will convert the data into timestamps in when you extract the data from a CF-NetCDF file.
+
+```{r}
+# Calculate the time differences in hours since the first timestamp
+time_diff_hours <- sapply(timestamps, function(ts) as.integer(difftime(ts, timestamps[[1]], units = "hours")))
+
+# Print the list of time differences in hours
+print(time_diff_hours)
+```
+
+```{r}
+num_times = length(time_diff_hours)
+
+ncds <- create.nc("test.nc")
+dim.def.nc(ncds,"time",num_times)
+var.def.nc(ncds,"time","NC_INT","time")
+var.put.nc(ncds,"time", time_diff_hours)
+print.nc(ncds)
+```
+
+### Multiple dimensions
+
+```{r}
+depths <- c(0,10,20,30,50,100)
+latitudes <- c(78.5271,79.2316,80.3261)
+longitudes <- c(30.1515,28.5810)
+
+ncds <- create.nc("test.nc")
+dim.def.nc(ncds,"depth",length(depths))
+dim.def.nc(ncds,"latitude",length(latitudes))
+dim.def.nc(ncds,"longitude",length(longitudes))
+
+var.def.nc(ncds,"depth","NC_INT","depth")
+var.def.nc(ncds,"latitude","NC_DOUBLE","latitude") # Values have decimal places, so NC_DOUBLE
+var.def.nc(ncds,"longitude","NC_DOUBLE","longitude") # Values have decimal places, so NC_DOUBLE
+
+var.put.nc(ncds, "depth", depths)
+var.put.nc(ncds, "latitude", latitudes)
+var.put.nc(ncds, "longitude", longitudes)
+print.nc(ncds)
+```
+# Data Variables
+
+Now let's add some data variables. Starting from the NetCDF file created directly above that has multiple dimensions.
+
+You can choose what name you assign for each variable. This is not standardised, but be sensible and clear. I will show you how to make your data variables conform to the CF conventions using variable attributes in the next section.
+
+### 1D variable
+
+```{r}
+chlorophyll_a <- c(21.5, 18.5, 17.6, 16.8, 15.2, 14.8) # Must be same length as the dimension
+var.def.nc(ncds,"chlorophyll_a", "NC_DOUBLE", "depth")
+var.put.nc(ncds,"chlorophyll_a", chlorophyll_a)
+print.nc(ncds)
+# var.get.nc(ncds,"chlorophyll_a") to get the values
+```
+
+### 2D variable
+
+Now a 2D variable, e.g. a grid of longitude and latitudes
+
+```{r}
+# Create random wind speed values
+wind_speed <- runif(length(latitudes) * length(longitudes), min = 0, max = 10)
+# Reshape the wind speed values to match the latitude and longitude dimensions
+wind_speed <- array(wind_speed, dim = c(length(latitudes), length(longitudes)))
+print(wind_speed)
+```
+
+```{r}
+var.def.nc(ncds, "wind_speed", "NC_DOUBLE", c("latitude", "longitude"))
+var.put.nc(ncds, "wind_speed", wind_speed)
+print.nc(ncds)
+print(var.get.nc(ncds, "wind_speed"))
+```
+Now you can see that the wind_speed variable has two dimensions; latitude and longitude. This is another major advantage of NetCDF files over tabular data formats like CSV or XLSX, which are limited in their ability to store multi-dimensional data. This multidimensional array can be used by code and software as it is without having to do any pre-processing. 
+
+### 3D variable
+```{r}
+sea_water_temperature <- runif(length(depths) * length(latitudes) * length(longitudes), min = 0, max = 2)
+
+# Reshape the sea water temperature values to match the depth, latitude, and longitude dimensions
+sea_water_temperature <- array(sea_water_temperature, dim = c(length(depths), length(latitudes), length(longitudes)))
+print(sea_water_temperature)
+
+# Define and store the sea water temperature variable
+var.def.nc(ncds, "sea_water_temperature", "NC_DOUBLE", c("depth", "latitude", "longitude"))
+var.put.nc(ncds, "sea_water_temperature", sea_water_temperature)
+
+print.nc(ncds)
+```
+### 3D data from data frame to 3D grid
+
+What if you have your data in Excel or a CSV file or some other tabular format? We can load in the data to a dataframe (above) and then convert the data to a 3D array.
+
+I'll create a dummy dataframe here.
+```{r}
+# Create lists to store the coordinates and salinity values
+depth_coordinates <- c()
+latitude_coordinates <- c()
+longitude_coordinates <- c()
+salinity_values <- c()
+
+# Generate the coordinates and salinity values for the grid
+for (d in depths) {
+  for (lat in latitudes) {
+    for (lon in longitudes) {
+      depth_coordinates <- c(depth_coordinates, rep(d, 1))
+      latitude_coordinates <- c(latitude_coordinates, rep(lat, 1))
+      longitude_coordinates <- c(longitude_coordinates, rep(lon, 1))
+      salinity <- runif(1, min = 30, max = 35)  # Random salinity value between 30 and 35
+      salinity_values <- c(salinity_values, salinity)
+    }
+  }
+}
+
+# Create a DataFrame
+data <- data.frame(
+  Depth = depth_coordinates,
+  Latitude = latitude_coordinates,
+  Longitude = longitude_coordinates,
+  Salinity = salinity_values
+)
+
+print(data)
+```
+
+Now, let's create a multidimensional grid for our salinity variable. We need to be a bit careful with the order here. The dataframe is sorted first by depth (6 depths), then by latitude (3 latitudes), then by longitude (2 longitudes). We should mirror that order.
+
+```{r}
+# Create a 3D array from the Salinity column and reshape it
+salinity_3d_array <- array(data$Salinity, dim = c(6, 3, 2))
+
+# or
+
+salinity_3d_array <- array(data$Salinity, dim = c(length(depths), length(latitudes),  length(longitudes)))
+print(salinity_3d_array)
+```
+
+```{r}
+var.def.nc(ncds, "salinity", "NC_DOUBLE", c("depth", "latitude", "longitude"))
+var.put.nc(ncds, "salinity", salinity_3d_array)
+
+print.nc(ncds)
+```
+# Variable attributes
+
+Hurrah! Your data are in the xarray dataset object. But are you ready to export a NetCDF file? Will that file be compliant with the FAIR principles? No! We need metadata.
+
+Variable attributes are metadata that describe the variables.
+
+The Climate & Forecast (CF) conventions dictate which variable attributes should be included for different data. 
+
+https://cfconventions.org/
+
+For example for latitude:
+https://cfconventions.org/Data/cf-conventions/cf-conventions-1.10/cf-conventions.html#latitude-coordinate
+
+Let's replicate that setup.
+
+These attributes are well documented on the ACDD convention host page, here: https://wiki.esipfed.org/Attribute_Convention_for_Data_Discovery_1-3#Highly_Recommended_Variable_Attributes
+
+```{r}
+att.put.nc(ncds, "latitude", "standard_name", "NC_CHAR", "latitude")
+att.put.nc(ncds, "latitude", "long_name", "NC_CHAR", "latitude")
+att.put.nc(ncds, "latitude", "units", "NC_CHAR", "degrees_north")
+att.put.nc(ncds, "latitude", "coverage_content_type", "NC_CHAR", "coordinate")
+
+att.put.nc(ncds, "longitude", "standard_name", "NC_CHAR", "longitude")
+att.put.nc(ncds, "longitude", "long_name", "NC_CHAR", "longitude")
+att.put.nc(ncds, "longitude", "units", "NC_CHAR", "degrees_east")
+att.put.nc(ncds, "longitude", "coverage_content_type", "NC_CHAR", "coordinate")
+
+att.put.nc(ncds, "depth", "standard_name", "NC_CHAR", "depth")
+att.put.nc(ncds, "depth", "long_name", "NC_CHAR", "depth below sea level")
+att.put.nc(ncds, "depth", "units", "NC_CHAR", "meters")
+att.put.nc(ncds, "depth", "coverage_content_type", "NC_CHAR", "coordinate")
+att.put.nc(ncds, "depth", "positive", "NC_CHAR", "down")
+
+att.put.nc(ncds, "chlorophyll_a", "standard_name", "NC_CHAR", "mass_concentration_of_chlorophyll_a_in_sea_water")
+att.put.nc(ncds, "chlorophyll_a", "long_name", "NC_CHAR", "a description about each variable in your own words")
+att.put.nc(ncds, "chlorophyll_a", "units", "NC_CHAR", "μg m-3")
+att.put.nc(ncds, "chlorophyll_a", "coverage_content_type", "NC_CHAR", "physicalMeasurement")
+# And so on for each variable..
+print.nc(ncds)
+```
+# Global attributes
+
+The CF conventions are light on discovery metadata. Discovery metadata are metadata that can be used to find data. For example, when and where the data were collected and by whom, some keywords etc. So we also use the ACDD convention - The Attribute Convention for Data Discovery.
+https://wiki.esipfed.org/Attribute_Convention_for_Data_Discovery_1-3
+
+This is a list of recommendations. SIOS advises that people follow the requirements of the Arctic Data Centre, here. Requirements are a more effective way to encourage consistency than recommendations. These requirements are compliant with the ACDD conventions:
+https://adc.met.no/node/4
+
+Go through and add each required attribute and any others you wish to. You are also welcome to add any custom attributes on top of these requirements. 
+
+For global attributes, we have a special variable name, *NC_GLOBAL*.
+
+```{r}
+att.put.nc(ncds, "NC_GLOBAL", "title", "NC_CHAR", "my title")
+att.put.nc(ncds, "NC_GLOBAL", "creator_name", "NC_CHAR", "John Smith; Ola Nordmann") # Who collected and processed the data up to this point
+att.put.nc(ncds, "NC_GLOBAL", "creator_email", "NC_CHAR", "johns@unis.no; olan@met.no")
+att.put.nc(ncds, "NC_GLOBAL", "creator_institution", "NC_CHAR", "The University Centre in Svalbard (UNIS); Norwegian Meteorological Institute (NPI)")
+att.put.nc(ncds, "NC_GLOBAL", "publisher_name", "NC_CHAR", "") # The name of the data centre you will publish your data with
+att.put.nc(ncds, "NC_GLOBAL", "license", "NC_CHAR", "https://creativecommons.org/licenses/by/4.0/")
+```
+
+And maybe we want to add some attributes based on information we have already provided
+
+```{r}
+att.put.nc(ncds, "NC_GLOBAL", "geospatial_lat_min", "NC_DOUBLE", min(latitudes))
+att.put.nc(ncds, "NC_GLOBAL", "geospatial_lat_max", "NC_DOUBLE", max(latitudes))
+
+# Get the current time in UTC
+current_time <- Sys.time()
+# Format the current time as an ISO8601 timestamp in UTC
+iso8601_timestamp <- format(current_time, tz = "UTC", , format = "%Y-%m-%dT%H:%M:%SZ")
+att.put.nc(ncds, "NC_GLOBAL", "date_created", "NC_CHAR", iso8601_timestamp)
+history <- paste("File created at", iso8601_timestamp, "by Luke Marsden using RNetCDF in R")
+att.put.nc(ncds, "NC_GLOBAL", "history", "NC_CHAR", history)
+print.nc(ncds)
+```
+Finally, we close the file to ensure that it is written and that everything is complete.
+
+```{r}
+close.nc(ncds)
+```
