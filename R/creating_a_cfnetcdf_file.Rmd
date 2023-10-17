@@ -318,3 +318,9 @@ Finally, we close the file to ensure that it is written and that everything is c
 ```{r}
 close.nc(ncds)
 ```
+
+# Checking your data
+
+Make sure you thoroughly check your file and it ideally should be run past all co-authors, just like when publishing a paper.
+
+There are also validators you can run your files by to make sure that you file is compliant with the ACDD and CF conventions before you publish it. For example: https://compliance.ioos.us/index.html
