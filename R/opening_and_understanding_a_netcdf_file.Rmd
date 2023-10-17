@@ -1,0 +1,113 @@
+# Load libraries
+
+Firstly, let's import the libraries that we will work with
+
+```{r}
+#install.packages("RNetCDF") # Uncomment if you don't have it installed already
+library(RNetCDF)
+```
+
+# Importing some data
+
+Have you heard of OpenDAP? Try running the cell below.
+
+OpenDAP, which stands for "Open-source Project for a Network Data Access Protocol," is a technology that makes it easier to access and share scientific data over the internet. In simple terms, think of OpenDAP as a way to access scientific data over the internet. One advantage of using OpenDap is that you don't need to download the data!
+
+```{r}
+netcdf_file <- 'https://opendap1.nodc.no/opendap/physics/point/cruise/nansen_legacy-single_profile/NMDC_Nansen-Legacy_PR_CT_58US_2021708/CTD_station_P1_NLEG01-1_-_Nansen_Legacy_Cruise_-_2021_Joint_Cruise_2-1.nc'
+data <- open.nc(netcdf_file)
+print.nc(data)
+```
+
+Let's break down what we see above.
+
+### Dimensions:
+
+At the top of the display you see Dimensions and PRES: 320. This NetCDF file has only 1 dimension, called PRES, which has 320 points. Dimensions tell you about the shape and size of your variables. In this case, we know that any variable with a dimension of PRES will have 320 data points - though some could be NaN.
+
+### Cordinates and Data variables:
+
+We have coordinate variables and data variables. The coordinate variable PRES has a dimension of the same name (the dimension is in brackets). The dimensions tell you how many points there are, the coordinate variable tell you their values.
+
+There are 33 data variables displayed here. All of them have the dimension of pressure. Some are in *NC_FLOAT* format - which means the values are decimal numbers. Others are *NC_SHORT* which means the values are integers.
+
+Each variable has variable attributes listed below is. They are metadata that describe the variable.
+
+### Attributes
+
+All 73 global attributes are displayed. They describe the data in the file as a whole.
+
+### All together
+
+You can see now that a NetCDF file has a defined structure. The attributes (metadata) and variables (data) are always stored in the same place, which makes it easy for machines to understand them.
+
+# A closer look
+
+We will now look at all of the above in more detail, and look at how to access the variables and attributes.
+
+### Attributes
+
+To look at a global attributes. 
+
+```{r}
+att.get.nc(data, "NC_GLOBAL", "creator_name")
+```
+
+And a variable attribute for the *PRES* variable.
+
+```{r}
+att.get.nc(data, "PRES", "standard_name")
+```
+
+*Conventions* is probably the most important global attribute because it tells you (and a machine) how to interpret the rest of the file. 
+
+```{r}
+att.get.nc(data, "NC_GLOBAL", "Conventions")
+```
+
+*CF-1.8* refers to version 1.8 of the CF conventions, which you can find here:
+
+https://cfconventions.org/ https://cfconventions.org/Data/cf-conventions/cf-conventions-1.8/cf-conventions.html
+
+The CF conventions are a set of standards that define how a NetCDF file should be structured. The document linked above is extensive, but the aim is to provide a standardised way to organise many different types of data. You don't need to read it all, but it should be your go-to place if you want to know how to do something.
+
+However, the CF conventions are light on discovery metadata. Discovery metadata are metadata that can be used to find data. For example, when and where the data were collected and by whom, some keywords etc. So we also use the ACDD convention - The Attribute Convention for Data Discovery.
+
+https://wiki.esipfed.org/Attribute_Convention_for_Data_Discovery_1-3
+
+The person who created this file should have read the relevant sections of these documents to make sure that the files comply with these conventions. There are also validators you can run your files by to make sure that you file is compliant with the conventions before you publish it. For example: https://compliance.ioos.us/index.html
+
+By following conventions, the data creator and user, human or machine, should be able to understand the data in the same way. A NetCDF file itself is no FAIR because you could include any attributes or structure your data however you like. A CF-NetCDF file is FAIR.
+
+### Variables
+
+```{r}
+var.get.nc(data, "PRES")
+```
+
+Now we can see the *PRES* coordinate variable. In the view above you can open up and look at the variable attributes - metadata that describe the variable. The variable name *PRES* is not standardised, but the *standard_name* variable attribute is from the CF conventions. You can find it in the list of CF standard names here. https://cfconventions.org/Data/cf-standard-names/current/build/cf-standard-name-table.html
+
+You can read the description and see what the canonical units should be. The data in the file doesn't need to be stored with the same units, but should be stored with units that are physically equivalent.
+
+It works the same with the data variables.
+
+```{r}
+var.get.nc(data, "TEMP")
+```
+
+# Plotting and exporting the data to a dataframe/Excel
+
+```{r}
+pres <- var.get.nc(data, "PRES")
+temp <- var.get.nc(data, "TEMP")
+psal <- var.get.nc(data, "PSAL")
+plot(temp, -pres)
+```
+```{r}
+df <- data.frame(Pressure = pres, Temperature=temp, Salinity = psal)
+#install.packages("writexl")
+library(writexl)
+#write_xlsx(df,'path/to/file.xlsx')
+df
+```
+
