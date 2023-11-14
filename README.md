@@ -1,5 +1,5 @@
 # cf-netcdf_workshop_nov2023
-Nansen Legacy workshop where people will bring their own data and create CF-NetCDF files to publish. The workshop will support both R and Python.
+Materials created for a Nansen Legacy workshop where people brought their own data and created CF-NetCDF files to publish.
 
 ## Contents
 1. Jupyter notebook on opening and understanding a NetCDF file using Python
